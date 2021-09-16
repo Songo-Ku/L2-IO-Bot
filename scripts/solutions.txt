@@ -1,0 +1,27 @@
+getLife()
+- treshold 1 = 140,200
+- treshold 2 = 10,200
+- config string = "-c tessedit_char_whitelist=0123456789/ --oem 3 --psm 8"
+- dilatation = 20,3
+- iterations = 1
+
+
+	-> perfect test_char
+	-> 1 digit mistake in test_char_2
+
+
+- config str no set
+- resize 1x cv2.INTER_LINEAR
+- dilations = 18,5
+
+	-> perfect test_char_2 
+	-> 2/3 test_char
+
+PERFECT CHAR INFO:
+- psm 7
+- tresholds = 140,200 and 10,200
+- orientation of dillution = 9,3
+- dilution iterations = 2
+- resize 1x , cv2.INTER_LINEAR
+- bounds y -= 2
+- ocr img_final (unchanged)

@@ -1,11 +1,11 @@
 import numpy
-
 import cv2
 import win32gui
 import win32ui
 import re
 import unicodedata
 from ctypes import windll
+import functions.misc
 
 import win32con
 from mss import mss
@@ -20,7 +20,7 @@ from classes.Constants import Constants
 
 pytesseract.tesseract_cmd = 'C:\Program Files (x86)\Tesseract-OCR\\tesseract.exe'
 
-debug = False
+debug = True
 ocr_ind = 0
 
 class Vision:
@@ -38,8 +38,8 @@ class Vision:
 
     def __init__(self,hwnd_):
         self.hwnd = hwnd_
-        # self.static_templates = {
-        #     'left-goalpost': 'assets/left-goalpost.png',
+        self.static_templates = {
+            Constants.TMPL_TARGET_CUE: './templates/targ_cue.png'
         #     'bison-head': 'assets/bison-head.png',
         #     'pineapple-head': 'assets/pineapple-head.png',
         #     'bison-health-bar': 'assets/bison-health-bar.png',
@@ -50,9 +50,11 @@ class Vision:
         #     'tap-to-continue': 'assets/tap-to-continue.png',
         #     'unlocked': 'assets/unlocked.png',
         #     'full-rocket': 'assets/full-rocket.png'
-        # }
+        }
         #
-        # self.templates = { k: cv2.imread(v, 0) for (k, v) in self.static_templates.items() }
+        self.templates = { k: cv2.imread(v, 0) for (k, v) in self.static_templates.items()}
+        # cv2.imshow('aa',self.templates[Constants.TMPL_TARGET_CUE])
+        # cv2.waitKey()
         #
         # self.monitor = {'top': 0, 'left': 0, 'width': 1920, 'height': 1080}
         # self.screen = mss()
@@ -71,25 +73,25 @@ class Vision:
     def update_full(self):
         self.get()
         self.update_char()
-        self.update_charname()
-        self.update_lvl()
-        self.update_exp()
-        self.update_adena()
+        # self.update_charname()
+        # self.update_lvl()
+        # self.update_exp()
+        # self.update_adena()
         self.update_target()
-        # self.data['char'] = self.char
-        # self.data['target'] = self.target
+        self.data['char'] = self.char
+        self.data['target'] = self.target
         # self.data['adena'] = self.adena
         # self.data['exp'] = self.exp
         # self.data['chat'] = self.chat
         # self.data['mem'] = self.mem
         # self.data['pt'] = self.pt
-        print 'AGENT update_full into:'
-        print self.char
-        print self.lvl
-        print self.exp
-        print self.adena
-        print self.target
-        print '----------------------------'
+        # print 'AGENT update_full into:'
+        # print self.char
+        # print self.lvl
+        # print self.exp
+        # print self.adena
+        # print self.target
+        # print '----------------------------'
 
     def convert_rgb_to_bgr(self, img):
         return img[:, :, ::-1]
@@ -106,14 +108,19 @@ class Vision:
     def refresh_frame(self):
         self.frame = self.take_screenshot()
 
-    def match_template(self, img_grayscale, template, threshold=0.9):
+    def match_template(self, img_grayscale, template_name, threshold=0.9):
         """
         Matches template image in a target grayscaled image
         """
+        # cv2.imshow('img', img_grayscale)
+        # cv2.waitKey()
+        # cv2.imshow('tmpl', self.templates[template_name])
+        # cv2.waitKey()
 
-        res = cv2.matchTemplate(img_grayscale, template, cv2.TM_CCOEFF_NORMED)
-        matches = np.where(res >= threshold)
-        return matches
+        res = cv2.matchTemplate(img_grayscale, self.templates[template_name], cv2.TM_CCOEFF_NORMED)
+        # matches = np.where(res >= threshold)
+        match = cv2.minMaxLoc(res)[1] > threshold
+        return match
 
     def find_template(self, name, image=None, threshold=0.9):
         if image is None:
@@ -148,7 +155,7 @@ class Vision:
         return matches
 
     def img_from_win(self, debug=False):
-        hwnd = win32gui.FindWindow(None, 'Lineage II')
+        hwnd = self.hwnd
 
         # Change the line below depending on whether you want the whole window
         # or just the client area.
@@ -165,6 +172,7 @@ class Vision:
         saveBitMap.CreateCompatibleBitmap(mfcDC, self.winw, self.winh)
 
         saveDC.SelectObject(saveBitMap)
+        # saveDC.BitBlt((0, 0), (self.winw, h_), mfcDC, (x_, y_), win32con.SRCCOPY)
 
         # Change the line below depending on whether you want the whole window
         # or just the client area.
@@ -673,20 +681,20 @@ class Vision:
         char_ = {'lvl': -1, 'name': "", 'cp': [-1, -1, -1], 'hp': [-1, -1, -1], 'mp': [-1, -1, -1]}
 
         # GET CROP OF SNAP: ROI
-        x_, y_, w_, h_ = Constants.SCR_CHAR
-        char_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
-        x_,y_,w_,h_ = Constants.SCR_CP
-        cp_part = numpy.array(self.snapshot)[y_:y_+h_,x_:x_+w_]
+        # x_, y_, w_, h_ = Constants.SCR_CHAR
+        # char_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
+        # x_,y_,w_,h_ = Constants.SCR_CP
+        # cp_part = numpy.array(self.snapshot)[y_:y_+h_,x_:x_+w_]
         x_, y_, w_, h_ = Constants.SCR_HP
         hp_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
-        x_, y_, w_, h_ = Constants.SCR_MP
-        mp_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
+        # x_, y_, w_, h_ = Constants.SCR_MP
+        # mp_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
 
         hpline = self.txt_from_img(hp_part, (100, 200), (80, 200), yshift=0, dil_or=(9, 3), fac=2,cfg_str="-c tessedit_char_whitelist=0123456789-|:;/ --oem 3 --psm 7")
-        cpline = self.txt_from_img(cp_part, (120, 200), (80, 200), yshift=-5, dil_or=(9, 3), fac=2,cfg_str="-c tessedit_char_whitelist=0123456789-|:;/ --oem 3 --psm 7")
-        # hpline = self.txt_from_img(hp_part,(140,200),(10,200),yshift=0,dil_or=(9,3),fac=1)
-        mpline = self.txt_from_img(mp_part,(130,200),(80,200),yshift=-2,dil_or=(9,3),fac=2,cfg_str="-c tessedit_char_whitelist=0123456789-|:;/ --oem 3 --psm 7")
-        lines = cpline+hpline+mpline
+        #cpline = self.txt_from_img(cp_part, (120, 200), (80, 200), yshift=-5, dil_or=(9, 3), fac=2,cfg_str="-c tessedit_char_whitelist=0123456789-|:;/ --oem 3 --psm 7")
+        ### hpline = self.txt_from_img(hp_part,(140,200),(10,200),yshift=0,dil_or=(9,3),fac=1)
+        #mpline = self.txt_from_img(mp_part,(130,200),(80,200),yshift=-2,dil_or=(9,3),fac=2,cfg_str="-c tessedit_char_whitelist=0123456789-|:;/ --oem 3 --psm 7")
+        lines = hpline+hpline+hpline #+mpline
         #lines = self.txt_from_img(char_part,(110,200),(100,200),yshift=-1,dil_or=(9,3),fac=2)
         # print lines
         # GET VALUES
@@ -764,23 +772,66 @@ class Vision:
             print self.char
             print '----------------------------'
 
+    def get_char_mp(self):
+
+        # im = cv2.imread(filename)
+        x_, y_, w_, h_ = Constants.SCR_MP
+        # print x_, y_, w_, h_
+        im = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
+        # enhancer = ImageEnhance.Contrast(im)
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        # im = np.array(img2gray)
+        # do stuff with im, then save suffixed _method1
+
+        # im = im.filter(ImageFilter.)
+
+        # img2gray = img
+        # ret, mask = cv2.threshold(im, 60, 250, cv2.THRESH_BINARY)
+        ret, mask = cv2.threshold(im, 135, 255, cv2.THRESH_BINARY)  # HP
+        image_final = cv2.bitwise_and(im, im, mask=mask)
+        # image_final = cv2.resize(image_final, (0, 0), fx=1, fy=1, interpolation=cv2.INTER_LINEAR)
+        Image.fromarray(image_final).save('mp.png')
+        text = pytesseract.image_to_string(Image.open('mp.png'), lang='l2fnt',
+                                           config='--oem 3 --psm 6 outputbase l2_hp').encode('ascii', 'ignore')
+        print(text)
+        text = text.replace('/', ' ')
+        # print life
+        # cp = map(int, life[0])
+        # hp = map(int, life[1])
+        mp = map(int, text.split())
+        print 'MP: '+str(mp[0])+' / '+str(mp[1])
+
     def update_target(self):
-        targ_ = {'name': "", 'hp': -1, 'mp': -1}
+        targ_ = {'name': "", 'hp': -1, 'mp': -1, 'sample': None}
         # GET CROP OF SNAP: ROI
-        x_, y_, w_, h_ = Constants.SCR_TARGET
-        snapshot_part = numpy.array(self.snapshot)[y_:y_ + h_, x_:x_ + w_]
+        x, y, w, h, = Constants.SCR_TARGCUE
+        graytarg = cv2.cvtColor(self.snapshot[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
 
-        lines = self.txt_from_img(snapshot_part, (140, 200), (10, 200),cfg_str='--oem 3 --psm 7',fac=4)
-        if debug:
-            print 'target region: '
-            print lines
-            print '----------------------------'
+        has_target = self.match_template(graytarg,Constants.TMPL_TARGET_CUE)
+        if not has_target:
+            targ_['name'] = ''
+            self.target = targ_
+            return
+        else:
+            x_, y_, w_, h_ = Constants.SCR_TARGET_NAME
+            graytargname = cv2.cvtColor(self.snapshot[y_:y_ + h_, x_:x_ + w_], cv2.COLOR_BGR2GRAY)
+            targnm = self.txt_from_img(graytargname, (140, 200), (10, 200),cfg_str='--oem 3 --psm 7',fac=4)
 
-        if len(lines)>2:
-            targ_['name'] = lines[1]
-        elif len(lines)==2:
-            targ_['name'] = lines[0]
-        self.target = targ_
+            # targ_['name'] = lines
+            # if len(lines)>2:
+            #     targ_['name'] = lines[1]
+            # elif len(lines)==2:
+            nm = ''
+            for t in targnm:
+                nm += t + ' '
+            targ_['name'] = nm.strip()
+
+            self.target = targ_
+
+            if debug:
+                print 'target name: '
+                print nm
+                print '----------------------------'
 
     def get(self):
-        self.snapshot = self.img_from_win()
+        self.snapshot = numpy.array(self.img_from_win())
